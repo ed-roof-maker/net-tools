@@ -1,0 +1,41 @@
+#!/usr/bin/bash
+# Helper tool for site-test
+SITE=$1
+O_MODE=$2
+A_RESOLVER=$2
+# has authenticated date
+has_ad=$(dig ${SITE} @${A_RESOLVER} +dnssec +timeout=5 +tries=2 | grep flags | grep ad | wc -l)
+# the recursive server is dnssec aware
+has_do=$(dig ${SITE} @${A_RESOLVER} +dnssec +timeout=5 +tries=2 | grep flags | grep do | wc -l)
+# has additional signature
+has_rrsig=$(dig ${SITE} @${A_RESOLVER} +dnssec +timeout=5 +tries=2 | grep RRSIG | wc -l)
+# passes delv
+delv_ok=$(delv ${SITE} @${A_RESOLVER} | grep -i -e 'fully\svalidated' | wc -l)
+if [ "${O_MODE}" == '--neg-test' ]
+then
+  neg_test_ok=$(delv ${SITE} @${A_RESOLVER} | grep -i -e 'fully\svalidated' | grep -i -e 'negative' | wc -l)
+  has_servfail=$(delv ${SITE} @${A_RESOLVER} | grep -i -e 'SERVFAIL' | wc -l)
+  empty_ok=$(delv ${SITE} @${A_RESOLVER} | wc -l)  # This means a dns lookup not found
+  if [ ${neg_test_ok} -ge 1 ] || [[ (${has_do} -ge 1) && (${has_servfail} -ge 1) ]]
+  then
+	 echo OK
+  else
+	 if [ ${empty_ok} -eq 0 ]
+	 then
+		echo NA
+	 else
+		echo FAIL
+	 fi
+  fi
+else
+  if [ ${has_ad} -ge 1 ] && [ ${has_do} -ge 1 ] && [ ${has_rrsig} -ge 1 ] && [ ${delv_ok} -ge 1 ]
+  then
+	 echo OK
+  else
+	 echo 'DNSSEC - has ad? '${has_ad}
+	 echo 'DNSSEC - has do? '${has_do}
+	 echo 'DNSSEC - has rrsig? '${has_rssig}
+	 echo 'DNSSEC - delv validated? '${delv_ok}
+	 echo FAIL
+  fi
+fi
