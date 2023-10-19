@@ -1,0 +1,3 @@
+#!/usr/bin/bash
+# Pipe your input args to this file
+cat - | sed 's|<a|\n<a|gi' | sed 's|a>|a>\n|g' | grep href | cut -d \" -f 2
